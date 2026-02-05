@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VisiAura - Visual Inspiration & AI Generator</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Framer Motion & Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- React & Firebase SDKs -->
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            overflow-x: hidden;
+            background-color: #ffffff;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #E60023; border-radius: 10px; }
+
+        /* Masonry Grid Layout */
+        .masonry {
+            column-count: 2;
+            column-gap: 1rem;
+        }
+        @media (min-width: 768px) { .masonry { column-count: 3; } }
+        @media (min-width: 1024px) { .masonry { column-count: 5; } }
+        .masonry-item { break-inside: avoid; margin-bottom: 1rem; }
+
+        /* Glassmorphism */
+        .glass {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        /* Floating & Vanishing Animation */
+        @keyframes floatUp {
+            0% { transform: translateY(100vh) scale(0.8); opacity: 0; }
+            20% { opacity: 0.8; }
+            80% { opacity: 0.3; }
+            100% { transform: translateY(-20vh) scale(1.1); opacity: 0; }
+        }
+        .animate-floating {
+            position: absolute;
+            animation: floatUp 12s linear infinite;
+        }
+
+        /* Neon Infinity Loader */
+        .infinity-loader {
+            width: 60px;
+            height: 30px;
+            border: 4px solid transparent;
+            border-left-color: #E60023;
+            border-right-color: #ff4d4d;
+            border-radius: 50%;
+            animation: rotate 1s linear infinite;
+            filter: drop-shadow(0 0 8px #E60023);
+        }
+        @keyframes rotate { to { transform: rotate(360deg); } }
+
+        /* Slide Up Animation */
+        .slide-up-enter { transform: translateY(100%); }
+        .slide-up-active { transform: translateY(0); transition: transform 0.4s ease-out; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef, useMemo } = React;
+
+        // Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyCejYJD186N7wwWsv_QyPjXjaSwipp1nT0",
+            authDomain: "visiaura.firebaseapp.com",
+            projectId: "visiaura",
+            storageBucket: "visiaura.appspot.com",
+            messagingSenderId: "123456789",
+            appId: "1:123:web:abc"
+        };
+
+        // --- Mock Data ---
+        const INTERESTS = [
+            { id: 1, name: "Fotografi", img: "https://images.unsplash.com/photo-1516035069371-29a1b244cc32?w=400" },
+            { id: 2, name: "Interior", img: "https://images.unsplash.com/photo-1616489953149-80941967262a?w=400" },
+            { id: 3, name: "OOTD", img: "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=400" },
+            { id: 4, name: "Arsitektur", img: "https://images.unsplash.com/photo-1487958449913-d92799018b39?w=400" },
+            { id: 5, name: "Kuliner", img: "https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=400" },
+            { id: 6, name: "Alam", img: "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=400" }
+        ];
+
+        // --- Components ---
+
+        const Toast = ({ message, type = "info", onClose }) => {
+            useEffect(() => {
+                const timer = setTimeout(onClose, 4000);
+                return () => clearTimeout(timer);
+            }, [onClose]);
+
+            return (
+                <div className="fixed top-10 right-5 z-[100] animate-bounce-in">
+                    <div className="glass p-4 rounded-2xl shadow-2xl flex items-center gap-3 border-l-4 border-red-600 min-w-[300px]">
+                        <div className="bg-red-50 p-2 rounded-full">
+                            <i data-lucide="bell" className="text-red-600 w-5 h-5"></i>
+                        </div>
+                        <div>
+                            <p className="font-bold text-gray-800 text-sm">VisiAura Notif</p>
+                            <p className="text-gray-600 text-xs">{message}</p>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const WelcomeScreen = ({ onFinish }) => {
+            const floatingCards = Array.from({ length: 15 });
+            return (
+                <div className="fixed inset-0 bg-white z-[60] flex flex-col items-center justify-center overflow-hidden">
+                    {floatingCards.map((_, i) => (
+                        <div 
+                            key={i} 
+                            className="animate-floating bg-gray-100 rounded-xl shadow-lg border border-white"
+                            style={{
+                                left: `${Math.random() * 100}%`,
+                                width: `${60 + Math.random() * 100}px`,
+                                height: `${80 + Math.random() * 120}px`,
+                                animationDelay: `${Math.random() * 5}s`,
+                                animationDuration: `${10 + Math.random() * 10}s`,
+                                backgroundImage: `url(https://picsum.photos/200/300?random=${i})`,
+                                backgroundSize: 'cover'
+                            }}
+                        />
+                    ))}
+                    <div className="relative z-10 text-center px-10">
+                        <h1 className="text-6xl font-bold text-gray-900 tracking-tighter mb-4">Visi<span className="text-red-600">Aura</span></h1>
+                        <p className="text-gray-500 mb-8 max-w-sm mx-auto">Temukan aura visualmu dalam setiap sudut inspirasi dunia.</p>
+                        <button 
+                            onClick={onFinish}
+                            className="bg-red-600 text-white px-10 py-4 rounded-full font-bold hover:bg-black transition-all shadow-xl active:scale-95"
+                        >
+                            Mulai Eksplorasi
+                        </button>
+                    </div>
+                </div>
+            );
+        };
+
+        const App = () => {
+            const [view, setView] = useState('welcome'); // welcome, onboarding, home, profile, chat
+            const [user, setUser] = useState(null);
+            const [toast, setToast] = useState(null);
+            const [isGenerating, setIsGenerating] = useState(false);
+            const [sliderOpen, setSliderOpen] = useState(false);
+            const [interests, setInterests] = useState([]);
+
+            useEffect(() => {
+                if (window.lucide) window.lucide.createIcons();
+            }, [view, isGenerating, sliderOpen]);
+
+            const showNotify = (msg) => setToast(msg);
+
+            const handleLogin = () => {
+                // Mock Login logic
+                showNotify("Masuk sebagai User VisiAura");
+                setView('home');
+            };
+
+            const toggleInterest = (id) => {
+                setInterests(prev => 
+                    prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+                );
+            };
+
+            if (view === 'welcome') return <WelcomeScreen onFinish={() => setView('onboarding')} />;
+
+            if (view === 'onboarding') {
+                return (
+                    <div className="min-h-screen bg-white flex flex-col p-8">
+                        <div className="mb-10 text-center">
+                            <h2 className="text-3xl font-bold mb-2">Pilih Aura-mu</h2>
+                            <p className="text-gray-400">Minimal pilih 3 minat untuk personalisasi algoritma.</p>
+                        </div>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-10 overflow-y-auto max-h-[60vh] p-2">
+                            {INTERESTS.map(item => (
+                                <div 
+                                    key={item.id}
+                                    onClick={() => toggleInterest(item.id)}
+                                    className={`relative cursor-pointer rounded-3xl overflow-hidden h-40 group transition-all ${interests.includes(item.id) ? 'ring-4 ring-red-600' : ''}`}
+                                >
+                                    <img src={item.img} className="w-full h-full object-cover group-hover:scale-110 transition-transform" />
+                                    <div className={`absolute inset-0 flex items-center justify-center bg-black/40 text-white font-bold text-lg ${interests.includes(item.id) ? 'bg-red-600/60' : ''}`}>
+                                        {item.name}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                        <div className="mt-auto">
+                            <button 
+                                disabled={interests.length < 3}
+                                onClick={() => setView('home')}
+                                className={`w-full py-5 rounded-full font-bold text-white transition-all ${interests.length >= 3 ? 'bg-red-600 shadow-xl active:scale-95' : 'bg-gray-300'}`}
+                            >
+                                {interests.length >= 3 ? "Masuk ke Dashboard" : `Pilih ${3 - interests.length} lagi`}
+                            </button>
+                        </div>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="min-h-screen bg-white pb-24">
+                    {toast && <Toast message={toast} onClose={() => setToast(null)} />}
+
+                    {/* Header */}
+                    <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-md px-4 py-4 flex items-center justify-between gap-4">
+                        <div className="text-2xl font-bold text-red-600">V</div>
+                        <div className="flex-1 max-w-2xl relative">
+                            <i data-lucide="search" className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"></i>
+                            <input 
+                                type="text" 
+                                placeholder="Cari inspirasi instagrammable..." 
+                                className="w-full bg-gray-100 py-3 pl-12 pr-4 rounded-full focus:ring-2 focus:ring-red-100 outline-none transition-all"
+                            />
+                        </div>
+                        <div className="flex gap-2">
+                            <button className="p-2 hover:bg-gray-100 rounded-full"><i data-lucide="bell" className="w-6 h-6"></i></button>
+                            <button onClick={() => setView('profile')} className="w-10 h-10 bg-gray-200 rounded-full overflow-hidden border">
+                                <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felix" alt="Profile" />
+                            </button>
+                        </div>
+                    </header>
+
+                    {/* Dashboard Masonry */}
+                    <main className="p-4">
+                        <div className="masonry">
+                            {Array.from({ length: 20 }).map((_, i) => (
+                                <div key={i} className="masonry-item relative group rounded-2xl overflow-hidden cursor-zoom-in">
+                                    <img 
+                                        src={`https://picsum.photos/400/${400 + (i % 4) * 100}?random=${i + 20}`} 
+                                        className="w-full h-auto object-cover group-hover:scale-105 transition-transform duration-500"
+                                        loading="lazy"
+                                    />
+                                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all flex flex-col justify-between p-4 opacity-0 group-hover:opacity-100">
+                                        <button className="self-end bg-red-600 text-white px-5 py-2 rounded-full font-bold shadow-lg hover:bg-red-700 transition-colors" onClick={(e) => {
+                                            e.stopPropagation();
+                                            showNotify("Tersimpan ke Papan");
+                                        }}>
+                                            Simpan
+                                        </button>
+                                        <div className="flex items-center gap-2 text-white">
+                                            <div className="w-6 h-6 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center overflow-hidden">
+                                                <img src={`https://api.dicebear.com/7.x/pixel-art/svg?seed=${i}`} />
+                                            </div>
+                                            <span className="text-xs font-semibold">Kreator_{i}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </main>
+
+                    {/* Google Veo 3 Module (Static Example) */}
+                    <div className="px-4 mb-10">
+                        <div className="glass p-8 rounded-[3rem] shadow-2xl border-2 border-red-50 text-center">
+                            <h3 className="text-2xl font-bold mb-6 flex items-center justify-center gap-2">
+                                <i data-lucide="sparkles" className="text-red-600"></i> Google Veo 3 Generator
+                            </h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
+                                <div className="space-y-4">
+                                    <input type="text" placeholder="[Subjek]" className="w-full bg-white border border-gray-100 p-4 rounded-2xl outline-none focus:border-red-600" />
+                                    <input type="text" placeholder="[Gerakan]" className="w-full bg-white border border-gray-100 p-4 rounded-2xl outline-none focus:border-red-600" />
+                                </div>
+                                <div className="space-y-4">
+                                    <input type="text" placeholder="[Pencahayaan]" className="w-full bg-white border border-gray-100 p-4 rounded-2xl outline-none focus:border-red-600" />
+                                    <input type="text" placeholder="[Style]" className="w-full bg-white border border-gray-100 p-4 rounded-2xl outline-none focus:border-red-600" />
+                                </div>
+                            </div>
+                            <button 
+                                onClick={() => {
+                                    setIsGenerating(true);
+                                    setTimeout(() => {
+                                        setIsGenerating(false);
+                                        showNotify("Video Veo 3 berhasil digenerate!");
+                                    }, 5000);
+                                }}
+                                className="mt-8 bg-black text-white px-12 py-5 rounded-full font-bold hover:bg-red-600 transition-all shadow-xl"
+                            >
+                                Generate Visual
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Slider Up Panel (Account & Categories) */}
+                    <div 
+                        className={`fixed inset-0 z-50 bg-black/40 transition-opacity ${sliderOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+                        onClick={() => setSliderOpen(false)}
+                    >
+                        <div 
+                            className={`absolute bottom-0 left-0 right-0 bg-white rounded-t-[3rem] p-10 transform transition-transform duration-500 ${sliderOpen ? 'translate-y-0' : 'translate-y-full'}`}
+                            onClick={e => e.stopPropagation()}
+                        >
+                            <div className="w-12 h-1.5 bg-gray-200 rounded-full mx-auto mb-10" />
+                            <h2 className="text-2xl font-bold mb-8">Pengaturan Akun</h2>
+                            
+                            <div className="space-y-6">
+                                <div className="flex items-center gap-4 p-4 hover:bg-gray-50 rounded-2xl cursor-pointer transition-colors border border-transparent hover:border-red-100">
+                                    <div className="bg-red-100 p-3 rounded-full text-red-600">
+                                        <i data-lucide="shield-check"></i>
+                                    </div>
+                                    <div>
+                                        <p className="font-bold">Privasi Akun</p>
+                                        <p className="text-xs text-gray-400">Atur siapa yang melihat auramu</p>
+                                    </div>
+                                </div>
+                                
+                                <div className="flex items-center gap-4 p-4 hover:bg-gray-50 rounded-2xl cursor-pointer transition-colors border border-transparent hover:border-red-100">
+                                    <div className="bg-blue-100 p-3 rounded-full text-blue-600">
+                                        <i data-lucide="help-circle"></i>
+                                    </div>
+                                    <div>
+                                        <p className="font-bold">Pusat Bantuan</p>
+                                        <p className="text-xs text-gray-400">Hubungi: visi4ura@gmail.com</p>
+                                    </div>
+                                    <div className="ml-auto flex gap-2">
+                                        <a href="mailto:visi4ura@gmail.com" className="bg-gray-100 p-2 rounded-lg hover:bg-red-600 hover:text-white transition-colors"><i data-lucide="mail" className="w-4 h-4"></i></a>
+                                        <a href="https://wa.me/6288225879928" className="bg-green-100 p-2 rounded-lg hover:bg-green-600 hover:text-white transition-colors text-green-600"><i data-lucide="phone" className="w-4 h-4"></i></a>
+                                    </div>
+                                </div>
+
+                                <button onClick={() => setView('welcome')} className="w-full py-4 text-red-600 font-bold border-2 border-red-50 rounded-2xl hover:bg-red-50 transition-all mt-10">
+                                    Keluar & Tambah Akun Baru
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Bottom Navigation */}
+                    <nav className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-md border-t border-gray-100 px-6 py-4 flex justify-between items-center z-40 max-w-4xl mx-auto md:rounded-t-[2.5rem] md:shadow-2xl">
+                        <button onClick={() => setView('home')} className={`p-2 rounded-full transition-colors ${vieew === 'home' ? 'text-red-600' : 'text-gray-400'}`}><i data-lucide="home"></i></button>
+                        <button className="p-2 text-gray-400"><i data-lucide="search"></i></button>
+                        <button className="bg-red-600 text-white p-3 rounded-full shadow-lg shadow-red-200 active:scale-90 transition-all -mt-10 border-4 border-white"><i data-lucide="plus"></i></button>
+                        <button className="p-2 text-gray-400"><i data-lucide="camera"></i></button>
+                        <button onClick={() => setSliderOpen(true)} className="p-2 text-gray-400"><i data-lucide="user"></i></button>
+                    </nav>
+
+                    {/* Generator Loading Overlay */}
+                    {isGenerating && (
+                        <div className="fixed inset-0 z-[100] bg-black/80 flex flex-col items-center justify-center text-white">
+                            <div className="infinity-loader mb-6"></div>
+                            <h2 className="text-xl font-bold tracking-widest uppercase animate-pulse">Memproses Veo 3</h2>
+                            <p className="text-gray-400 mt-2 text-sm italic">Menenun aura digital untukmu...</p>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
